@@ -581,3 +581,9 @@ cdef extern from "class.h":
                   double * pk_tot_out,
                   double * pk_cb_tot_out,
                   int nonlinear)
+
+    int hyperspherical_WKB_vec(int l, double beta, double *sinK_vec, int size_sinK_vec, double *Phi)
+
+    int hyperspherical_forwards_recurrence(int K,int lmax,double beta,double x, double sinK, double cotK,double *sqrtK,double *one_over_sqrtK,double *PhiL)
+
+    int hyperspherical_backwards_recurrence(int K,int lmax,double beta,double x,double sinK,double cotK,double *sqrtK,double *one_over_sqrtK, double *PhiL)

@@ -147,8 +147,11 @@ int hyperspherical_HIS_create(int K,
           Phi_{lmax+1} which is not allowed. However,
           the purpose is to calculate the derivative
           Phi'_{lmax}, and the formula is correct if we set Phi_{lmax+1} = 0.
+          (Edit: due to chunk sizes being any value, we need to zero the whole array.)
       */
-      PhiL[lmax+1] = 0.0;
+      for (j = 0; j < (lmax+2)*_HYPER_CHUNK_; ++j) {
+        PhiL[j] = 0.0;
+      }
       lmax--;
     }
 

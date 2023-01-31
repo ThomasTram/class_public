@@ -2714,7 +2714,7 @@ make        nonlinear_scale_cb(z, z_size)
         """
         sources = {}
 
-        cdef: 
+        cdef:
             int index_k, index_tau, i_index_type;
             int index_type;
             int index_md = self.pt.index_md_scalars;
@@ -2871,10 +2871,103 @@ make        nonlinear_scale_cb(z, z_size)
 
         for index_type, name in zip(indices, names):
             tmparray = np.empty((k_size,tau_size))
-            for index_k in range(k_size):                 
+            for index_k in range(k_size):
                 for index_tau in range(tau_size):
                     tmparray[index_k][index_tau] = sources_ptr[index_md][index_ic*tp_size+index_type][index_tau*k_size + index_k];
 
             sources[name] = np.asarray(tmparray)
 
         return (sources, np.asarray(k_array), np.asarray(tau_array))
+
+    def hyperspherical_WKB(self, int l, nu, np.ndarray[DTYPE_t,ndim=1] sinK):
+        """
+        hyperspherical_WKB(l, nu, sin_K)
+
+        Return the WKB approximation of the (hyper-)spherical Bessel function Phi_l^nu(chi)
+        where sinK = {chi, sin(chi), sinh(chi)} for K=0,+1,-1 respectively.
+
+        Parameters
+        ----------
+        l : int
+                order l
+        nu : float
+                order nu
+        sin_K : numpy array
+                argument
+        """
+        Phi = np.zeros(len(sinK),'float64')
+        cdef double [:] sinK_view = sinK
+        cdef double [:] Phi_view = Phi
+
+        hyperspherical_WKB_vec(l, nu, &sinK_view[0], len(sinK), &Phi_view[0])
+
+        return Phi
+
+    def hyperspherical_recurrence(self, int lmax, nu, int K, np.ndarray[DTYPE_t,ndim=1] chi):
+        """
+        hyperspherical_recurrence(l, nu, K, chi)
+
+        Return the (hyper-)spherical Bessel function Phi_l^nu(chi) computed using recurrence relations.
+
+        Parameters
+        ----------
+        lmax : int
+                maximum order l
+        nu : float
+                order nu
+        K : int
+                K=-1,0,1
+        chi : numpy array
+                argument
+        """
+        Phi = np.zeros((len(chi),lmax+1),'float64')
+        chi_tp = np.sqrt(lmax*(lmax+1.0))/nu
+        if (K==1):
+            sinK = np.sin(chi)
+            cotK = 1./np.tan(chi)
+            chi_tp = np.arcsin(chi_tp)
+        elif (K==-1):
+            sinK = np.sinh(chi)
+            cotK = 1./np.tanh(chi)
+            chi_tp = np.arcsinh(chi_tp)
+        else:
+            K=0
+            sinK = chi
+            cotK = 1./chi
+
+        sqrtK = np.sqrt(nu*nu-K*np.arange(lmax+3)**2)
+        one_over_sqrtK = 1./sqrtK
+
+        cdef double [:] chi_view = chi
+        cdef double [:] sinK_view = sinK
+        cdef double [:] cotK_view = cotK
+        cdef double [:] sqrtK_view = sqrtK
+        cdef double [:] one_over_sqrtK_view = one_over_sqrtK
+        cdef double [:,:] Phi_view = Phi
+        cdef int index_chi
+        cdef int Nchi = len(chi)
+        cdef double chidbl
+
+        for index_chi in range(Nchi):
+            if (chi_view[index_chi]<chi_tp):
+                hyperspherical_backwards_recurrence(K,
+                                          lmax,
+                                          nu,
+                                          chi_view[index_chi],
+                                          sinK_view[index_chi],
+                                          cotK_view[index_chi],
+                                          &sqrtK_view[0],
+                                          &one_over_sqrtK_view[0],
+                                          &Phi_view[index_chi][0])
+            else:
+                hyperspherical_forwards_recurrence(K,
+                                          lmax,
+                                          nu,
+                                          chi_view[index_chi],
+                                          sinK_view[index_chi],
+                                          cotK_view[index_chi],
+                                          &sqrtK_view[0],
+                                          &one_over_sqrtK_view[0],
+                                          &Phi_view[index_chi][0])
+
+        return Phi
